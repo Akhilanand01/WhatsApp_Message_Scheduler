@@ -1,6 +1,6 @@
 import streamlit as st
 from twilio.rest import Client
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 
 # ------------------ PAGE CONFIG ------------------
@@ -31,31 +31,42 @@ def send_whatsapp_message(number, message):
     try:
         msg = client.messages.create(
             body=message,
-            from_="whatsapp:+14155238886",  # Twilio Sandbox number
+            from_="whatsapp:+14155238886",  # Twilio Sandbox
             to=f"whatsapp:{number}"
         )
         return True, msg.sid
     except Exception as e:
         return False, str(e)
 
+# ------------------ VALIDATION FUNCTION ------------------
+def get_valid_scheduled_time(selected_date, selected_time):
+    scheduled_dt = datetime.combine(selected_date, selected_time)
+    now = datetime.now()
+
+    # Add 60 seconds buffer to avoid edge-case failure
+    if scheduled_dt >= now + timedelta(seconds=60):
+        return True, scheduled_dt
+    return False, scheduled_dt
+
 # ------------------ BUTTON ------------------
 if st.button("📤 Schedule Message"):
 
-    # Input validation
     if not recipient_number or not message_body:
         st.error("❌ Please enter recipient number and message")
-    else:
-        scheduled_datetime = datetime.combine(date_input, time_input)
-        delay_seconds = (scheduled_datetime - datetime.now()).total_seconds()
 
-        if delay_seconds <= 0:
-            st.error("❌ Please select a future date & time")
+    else:
+        is_valid, scheduled_datetime = get_valid_scheduled_time(
+            date_input, time_input
+        )
+
+        if not is_valid:
+            st.error("❌ Please select a future date & time (at least 1 minute ahead)")
         else:
+            delay_seconds = (scheduled_datetime - datetime.now()).total_seconds()
+
             st.success(
                 f"✅ Message scheduled for {scheduled_datetime.strftime('%d %b %Y, %H:%M')}"
             )
-
-            # Streamlit limitation note
             st.info("⏳ App will wait until scheduled time...")
 
             time.sleep(delay_seconds)
